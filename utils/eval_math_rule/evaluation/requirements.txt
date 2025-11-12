@@ -1,12 +1,11 @@
 # common
+vllm
 tqdm
 datasets
 torch
 transformers
 python_dateutil
-ipykernel
-openai
-accelerate
+flash_attn
 
 # math_eval
 sympy==1.12
