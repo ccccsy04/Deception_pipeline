@@ -39,7 +39,7 @@ def main(args):
     if not os.path.exists(args.save_dir):
         raise ValueError("Save directory does not exist")
 
-    with open(os.path.join(args.save_dir, "deceptionbench_results.jsonl"), "r") as f:
+    with open(os.path.join(args.save_dir, "deceptionbench_results_new.jsonl"), "r") as f:
         results = [json.loads(line) for line in f]
     #results = results[:3]
     analysis = []
@@ -51,12 +51,23 @@ def main(args):
         mesa_outer_message= build_mesa_outer_message(mesa_utility, output, prompt_context=sample["outer_prompt"].split("\n")[1] if len(sample["outer_prompt"].split("\n")) > 2 else sample["outer_prompt"])
         #print("mesa_cot_message:", mesa_cot_message)
         #print("mesa_outer_message:", mesa_outer_message)
-        mesa_cot_reply= gpt_api_call(mesa_cot_message, model="gpt-4o")
-        mesa_outer_reply= gpt_api_call(mesa_outer_message, model="gpt-4o")
-        #print("mesa_cot_reply:", mesa_cot_reply)
-        #print("mesa_outer_reply:", mesa_outer_reply)
-        mesa_cot_reply = mesa_cot_reply.lower()
-        mesa_outer_reply = mesa_outer_reply.lower()
+        while(True):
+            mesa_cot_reply= gpt_api_call(mesa_cot_message, model="gpt-4o")
+            #print("mesa_cot_reply:", mesa_cot_reply)
+            mesa_cot_reply = mesa_cot_reply.lower()
+            if mesa_cot_reply in ["yes", "no"]:
+                break
+            print("mesa_cot_reply:", mesa_cot_reply)
+            print("mesa_cot_reply invalid, retrying...")
+        while(True):
+            mesa_outer_reply= gpt_api_call(mesa_outer_message, model="gpt-4o")
+            mesa_outer_reply = mesa_outer_reply.lower()
+            #print("mesa_outer_reply:", mesa_outer_reply)
+            if mesa_cot_reply in ["yes", "no"]:
+                break
+            print("mesa_outer_reply:", mesa_outer_reply)
+            print("mesa_outer_reply invalid, retrying...")
+            
         type_kind=sample['type']
         analysis.append({
             "id": sample["id"],
