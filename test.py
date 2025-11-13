@@ -1,4 +1,4 @@
-from utils.get_math_results import main as eval_math_results
+from utils.get_math_results_dual import main as eval_math_results
 
 # 评测并保存结果
 eval_math_results(
