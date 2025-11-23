@@ -25,12 +25,17 @@ def collect_hidden_states(hidden_dir, layer_idx):
         outer_ids.append(idx)
     return np.array(mesa_vecs), np.array(outer_vecs), mesa_ids, outer_ids
 
-def plot_and_save(X, Y, method, save_path):
+def collect_all_groups(exp_dir, control_dir, layer_idx):
+    exp_mesa, exp_outer, _, _ = collect_hidden_states(exp_dir, layer_idx)
+    ctrl_mesa, ctrl_outer, _, _ = collect_hidden_states(control_dir, layer_idx)
+    return exp_mesa, exp_outer, ctrl_mesa, ctrl_outer
+
+def plot_and_save(Xs, labels, colors, method, save_path):
     plt.figure(figsize=(8,6))
-    plt.scatter(X[:,0], X[:,1], c='blue', label='mesa', alpha=0.7)
-    plt.scatter(Y[:,0], Y[:,1], c='red', label='outer', alpha=0.7)
+    for X, label, color in zip(Xs, labels, colors):
+        plt.scatter(X[:,0], X[:,1], label=label, alpha=0.7, c=color)
     plt.legend()
-    plt.title(f"{method} visualization of hidden states")
+    plt.title(f"{method} visualization of hidden states (exp/control)")
     plt.xlabel(f"{method} 1")
     plt.ylabel(f"{method} 2")
     plt.tight_layout()
@@ -40,26 +45,35 @@ def plot_and_save(X, Y, method, save_path):
 def main(args):
     os.makedirs(args.save_dir, exist_ok=True)
     for layer in args.layer:
-        mesa_vecs, outer_vecs, mesa_ids, outer_ids = collect_hidden_states(args.hidden_dir, layer)
-        all_vecs = np.concatenate([mesa_vecs, outer_vecs], axis=0)
-        labels = np.array([0]*len(mesa_vecs) + [1]*len(outer_vecs))
-
+        exp_mesa, exp_outer, ctrl_mesa, ctrl_outer = collect_all_groups(args.hidden_dir_exp, args.hidden_dir_control, layer)
+        all_vecs = np.concatenate([exp_mesa, exp_outer, ctrl_mesa, ctrl_outer], axis=0)
+        group_sizes = [len(exp_mesa), len(exp_outer), len(ctrl_mesa), len(ctrl_outer)]
         # t-SNE
         perplexity = max(2, min(30, len(all_vecs)//3))
         tsne = TSNE(n_components=2, random_state=42, perplexity=perplexity)
         all_tsne = tsne.fit_transform(all_vecs)
-        plot_and_save(all_tsne[labels==0], all_tsne[labels==1], "t-SNE", os.path.join(args.save_dir, f"tsne_layer{layer}.png"))
-
+        idxs = np.cumsum([0]+group_sizes)
+        plot_and_save([
+            all_tsne[idxs[0]:idxs[1]],
+            all_tsne[idxs[1]:idxs[2]],
+            all_tsne[idxs[2]:idxs[3]],
+            all_tsne[idxs[3]:idxs[4]]
+        ], ["exp_mesa", "exp_outer", "ctrl_mesa", "ctrl_outer"], ["blue", "red", "green", "orange"], "t-SNE", os.path.join(args.save_dir, f"tsne_layer{layer}.png"))
         # PCA
         pca = PCA(n_components=2)
         all_pca = pca.fit_transform(all_vecs)
-        plot_and_save(all_pca[labels==0], all_pca[labels==1], "PCA", os.path.join(args.save_dir, f"pca_layer{layer}.png"))
-
+        plot_and_save([
+            all_pca[idxs[0]:idxs[1]],
+            all_pca[idxs[1]:idxs[2]],
+            all_pca[idxs[2]:idxs[3]],
+            all_pca[idxs[3]:idxs[4]]
+        ], ["exp_mesa", "exp_outer", "ctrl_mesa", "ctrl_outer"], ["blue", "red", "green", "orange"], "PCA", os.path.join(args.save_dir, f"pca_layer{layer}.png"))
         print(f"Layer {layer} 's t-SNE and PCA plots saved to {args.save_dir}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--hidden_dir", type=str, required=True, help="hidden_state pt dir")
+    parser.add_argument("--hidden_dir_exp", type=str, required=True, help="deceptive cases hidden_state pt dir")
+    parser.add_argument("--hidden_dir_control", type=str, required=True, help="non-deceptive cases hidden_state pt dir")
     parser.add_argument("--save_dir", type=str, required=True, help="pic saving dir")
     parser.add_argument("--layer", type=int, nargs='+', default=[-1], help="layers to be extracted")
     args = parser.parse_args()
